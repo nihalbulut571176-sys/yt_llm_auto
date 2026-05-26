@@ -44,6 +44,16 @@ class SemanticBeatPlan:
     shot_type: str
     environment: str
     prompt_seed: str
+    primary_subject: str = ""
+    angle: str = ""
+    lighting: str = ""
+    atmosphere: str = ""
+    continuity_world: str = ""
+    continuity_focus: str = ""
+    continuity_entity_ids: list[str] = field(default_factory=list)
+    continuity_profiles: list[str] = field(default_factory=list)
+    style_summary: str = ""
+    restrictions: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

@@ -25,6 +25,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--alignment-json", required=True)
     parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--project-hint", default="")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--provider",
@@ -62,8 +63,8 @@ def main() -> None:
                 model=settings.model,
             )
 
-    plans, traces = build_semantic_plan(beats, client=client)
-    outputs = export_semantic_bundle(plans, traces, output_dir)
+    plans, traces, continuity_bundle = build_semantic_plan(beats, client=client, project_hint=args.project_hint)
+    outputs = export_semantic_bundle(plans, traces, continuity_bundle, output_dir)
     for path in outputs.values():
         print(path)
 

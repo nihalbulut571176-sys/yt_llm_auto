@@ -56,23 +56,50 @@ def load_semantic_plan(path: Path) -> list[SemanticBeatPlan]:
 
 
 def compose_image_prompt(item: SemanticBeatPlan) -> str:
-    return "\n".join(
+    continuity_profiles = item.continuity_profiles or [
+        "Reuse the same recurring documentary subject and the same recurring objects across the sequence."
+    ]
+    restrictions = item.restrictions or [
+        "no real-person names",
+        "no text on image",
+        "no subtitles",
+        "no logos",
+        "no watermark",
+        "no fake UI",
+        "no distorted anatomy",
+        "no plastic skin",
+        "no generic stock photo aesthetic",
+    ]
+    prompt_lines = [
+        "Create a premium cinematic documentary still in 16:9.",
+        "",
+        f"Scene meaning: {item.meaning}",
+        f"Visual: Show {item.primary_subject or item.prompt_seed} in a way that reflects the narration, preserves continuity, and feels like one unified documentary film rather than a random standalone image.",
+        f"Main subject: {item.primary_subject or item.prompt_seed}",
+        "Character continuity:",
+    ]
+    prompt_lines.extend(f"- {profile}" for profile in continuity_profiles)
+    prompt_lines.extend(
         [
-            "Create a premium cinematic documentary still in 16:9.",
-            "",
-            f"Scene meaning: {item.meaning}",
-            f"Visual function: {item.visual_function}",
-            f"Viewer emotion: {item.viewer_emotion}",
-            f"Visual strategy: {item.visual_strategy}",
-            f"Shot type: {item.shot_type}",
+            f"Action without speech: {item.prompt_seed}",
             f"Environment: {item.environment}",
-            f"Prompt seed: {item.prompt_seed}",
-            f"Narration context: {item.voiceover_excerpt}",
-            "",
-            "Style: photorealistic, premium cinematic documentary, realistic lens perspective, natural imperfections, layered depth, no text, no watermark.",
-            "Restrictions: no subtitles, no fake UI, no visible captions, no generic stock photo aesthetic, no distorted anatomy, no plastic skin.",
+            f"Composition: {item.shot_type}",
+            f"Angle: {item.angle or 'realistic documentary angle'}",
+            "Camera: realistic documentary photography, natural lens perspective, cinematic framing, realistic depth of field",
+            f"Lighting: {item.lighting or 'motivated documentary lighting'}",
+            f"Atmosphere: {item.atmosphere or item.viewer_emotion}",
+            "Important details:",
+            f"- Visual function: {item.visual_function}",
+            f"- Visual strategy: {item.visual_strategy}",
+            f"- Viewer emotion: {item.viewer_emotion}",
+            f"- Continuity focus: {item.continuity_focus or 'preserve recurring people, objects, and world details'}",
+            f"- Narration context: {item.voiceover_excerpt}",
+            f"- Continuity world: {item.continuity_world or 'grounded documentary realism'}",
+            f"Style: {item.style_summary or 'premium cinematic documentary still, photorealistic, realistic textures, high detail, subtle imperfections'}",
+            "Restrictions: " + ", ".join(restrictions),
         ]
     )
+    return "\n".join(prompt_lines)
 
 
 def compose_policy_safe_prompt(item: SemanticBeatPlan) -> str:
@@ -84,13 +111,19 @@ def compose_policy_safe_prompt(item: SemanticBeatPlan) -> str:
             "Visual function: documentary evidence and immediate consequence, not instructional action.",
             f"Viewer emotion: {item.viewer_emotion}",
             "Visual strategy: focus on aftermath, open display, shocked stillness, surveillance perspective, reflective surfaces, and missing-object evidence.",
+            f"Main subject: {item.primary_subject or item.prompt_seed}",
+            "Character continuity:",
+            *[f"- {profile}" for profile in (item.continuity_profiles or ["Reuse the same recurring documentary people and objects."])],
             "Shot type: investigative close-up or controlled over-the-shoulder documentary frame.",
             f"Environment: {item.environment}",
+            f"Angle: {item.angle or 'controlled documentary evidence angle'}",
+            f"Lighting: {item.lighting or 'cool investigative aftermath lighting'}",
+            f"Atmosphere: {item.atmosphere or 'forensic, shocked, restrained'}",
             f"Prompt seed: {item.prompt_seed}, but framed as aftermath and evidence only.",
             f"Narration context: {item.voiceover_excerpt}",
             "",
-            "Style: photorealistic, premium cinematic documentary, realistic lens perspective, natural imperfections, layered depth, no text, no watermark.",
-            "Restrictions: no active assault, no weapon use, no harmful spray depiction, no step-by-step crime action, no subtitles, no fake UI, no visible captions, no generic stock photo aesthetic, no distorted anatomy, no plastic skin.",
+            f"Style: {item.style_summary or 'photorealistic, premium cinematic documentary, realistic lens perspective, natural imperfections, layered depth'}",
+            "Restrictions: no active assault, no weapon use, no harmful spray depiction, no step-by-step crime action, no real-person names, no text on image, no subtitles, no fake UI, no visible captions, no generic stock photo aesthetic, no distorted anatomy, no plastic skin.",
         ]
     )
 
