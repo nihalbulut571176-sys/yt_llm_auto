@@ -9,6 +9,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from yt_llm_auto.config import load_semantic_llm_settings
+from yt_llm_auto.continuity_bible import load_continuity_bible
 from yt_llm_auto.semantic_analysis import (
     FastGenOpenAIChatClient,
     FastGenPromptClient,
@@ -26,6 +27,7 @@ def main() -> None:
     parser.add_argument("--alignment-json", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--project-hint", default="")
+    parser.add_argument("--continuity-bible", default="")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--provider",
@@ -37,6 +39,7 @@ def main() -> None:
     alignment_json = Path(args.alignment_json).resolve()
     output_dir = Path(args.output_dir).resolve()
     beats = load_beats_from_alignment(alignment_json)
+    continuity_bundle = load_continuity_bible(Path(args.continuity_bible).resolve()) if args.continuity_bible else None
 
     client = None
     if not args.dry_run:
@@ -63,8 +66,13 @@ def main() -> None:
                 model=settings.model,
             )
 
-    plans, traces, continuity_bundle = build_semantic_plan(beats, client=client, project_hint=args.project_hint)
-    outputs = export_semantic_bundle(plans, traces, continuity_bundle, output_dir)
+    plans, traces, resolved_continuity_bundle = build_semantic_plan(
+        beats,
+        client=client,
+        project_hint=args.project_hint,
+        continuity_bundle=continuity_bundle,
+    )
+    outputs = export_semantic_bundle(plans, traces, resolved_continuity_bundle, output_dir)
     for path in outputs.values():
         print(path)
 

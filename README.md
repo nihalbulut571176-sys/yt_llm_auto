@@ -13,6 +13,7 @@ The old repository remains a reference only. This repository starts from a clean
 - normalized word and segment timeline export
 - visual beat extraction from aligned speech
 - LLM-ready semantic analysis stage with FastGen prompt tokens or OpenAI-compatible chat
+- optional LLM-generated `continuity_bible.json` for project-wide recurring cast and visual world
 - Python continuity layer for recurring characters, objects, lighting, angle, and atmosphere
 - FastGen image generation from semantic beats
 - project docs for future FastGen image generation and final render integration
@@ -51,7 +52,8 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install -e .
 python scripts/align_audio.py --audio "C:\path\voiceover.mp3" --output-dir ".\outputs\demo"
-python scripts/semantic_analyze.py --alignment-json ".\outputs\demo\alignment.json" --output-dir ".\outputs\demo" --project-hint "Pink Panthers documentary" --dry-run
+python scripts/generate_continuity_bible.py --alignment-json ".\outputs\demo\alignment.json" --output-dir ".\outputs\demo" --project-hint "Pink Panthers documentary"
+python scripts/semantic_analyze.py --alignment-json ".\outputs\demo\alignment.json" --output-dir ".\outputs\demo" --project-hint "Pink Panthers documentary" --continuity-bible ".\outputs\demo\continuity_bible.json"
 python scripts/generate_images.py --semantic-plan ".\outputs\demo\semantic_plan.json" --output-dir ".\outputs\demo\images" --start 1 --end 2
 ```
 
@@ -70,6 +72,8 @@ Use `outputs/` only for temporary scratch experiments.
 
 Semantic analysis now exports:
 
+- `continuity_bible.json` from the optional project-level LLM stage
+- `continuity_bible_trace.json` from the optional project-level LLM stage
 - `semantic_plan.json`
 - `semantic_llm_trace.json`
 - `continuity_bundle.json`

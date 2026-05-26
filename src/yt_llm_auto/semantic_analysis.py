@@ -51,13 +51,52 @@ def parse_json_loose(text: str) -> dict[str, Any]:
         raise
 
 
-def beat_to_user_prompt(beat: VisualBeat, previous_text: str = "", next_text: str = "") -> str:
+def build_continuity_prompt_context(bundle: dict[str, Any] | None) -> str:
+    if not bundle:
+        return ""
+    lines = [
+        f"Project continuity world: {bundle.get('continuity_world', '')}",
+        f"Style summary: {bundle.get('style_summary', '')}",
+    ]
+    motifs = bundle.get("recurring_motifs", [])
+    if motifs:
+        lines.append("Recurring motifs: " + ", ".join(str(item) for item in motifs[:6]))
+    rules = bundle.get("continuity_rules", [])
+    if rules:
+        lines.append("Continuity rules: " + " | ".join(str(item) for item in rules[:5]))
+    chars = bundle.get("character_profiles", [])
+    if chars:
+        lines.append("Recurring characters:")
+        for item in chars[:5]:
+            lines.append(f"- {item.get('entity_id', '')}: {item.get('profile', '')}")
+    objs = bundle.get("object_profiles", [])
+    if objs:
+        lines.append("Recurring objects:")
+        for item in objs[:5]:
+            lines.append(f"- {item.get('entity_id', '')}: {item.get('profile', '')}")
+    locations = bundle.get("location_profiles", [])
+    if locations:
+        lines.append("Recurring locations:")
+        for item in locations[:4]:
+            lines.append(f"- {item.get('entity_id', '')}: {item.get('profile', '')}")
+    return "\n".join(line for line in lines if line.strip())
+
+
+def beat_to_user_prompt(
+    beat: VisualBeat,
+    previous_text: str = "",
+    next_text: str = "",
+    continuity_bundle: dict[str, Any] | None = None,
+) -> str:
     context_lines = [
         f"Beat ID: {beat.beat_id}",
         f"Timing: {beat.start:.3f}-{beat.end:.3f}s",
         f"Duration: {beat.duration:.3f}s",
         f"Current narration: {beat.text}",
     ]
+    continuity_context = build_continuity_prompt_context(continuity_bundle)
+    if continuity_context:
+        context_lines.append(continuity_context)
     if previous_text:
         context_lines.append(f"Previous context: {previous_text}")
     if next_text:
@@ -73,13 +112,19 @@ class OpenAICompatibleClient:
         self.endpoint = endpoint if endpoint.startswith("/") else f"/{endpoint}"
         self.model = model
 
-    def analyze(self, beat: VisualBeat, previous_text: str = "", next_text: str = "") -> dict[str, Any]:
+    def analyze(
+        self,
+        beat: VisualBeat,
+        previous_text: str = "",
+        next_text: str = "",
+        continuity_bundle: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}{self.endpoint}"
         payload = {
             "model": self.model,
             "input": [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": beat_to_user_prompt(beat, previous_text, next_text)},
+                {"role": "user", "content": beat_to_user_prompt(beat, previous_text, next_text, continuity_bundle)},
             ],
         }
         body = json.dumps(payload).encode("utf-8")
@@ -103,9 +148,15 @@ class FastGenPromptClient:
         self.base_url = base_url.rstrip("/")
         self.prompt_route = prompt_route if prompt_route.startswith("/") else f"/{prompt_route}"
 
-    def analyze(self, beat: VisualBeat, previous_text: str = "", next_text: str = "") -> dict[str, Any]:
+    def analyze(
+        self,
+        beat: VisualBeat,
+        previous_text: str = "",
+        next_text: str = "",
+        continuity_bundle: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}{self.prompt_route}"
-        prompt = "\n\n".join([SYSTEM_PROMPT, beat_to_user_prompt(beat, previous_text, next_text)])
+        prompt = "\n\n".join([SYSTEM_PROMPT, beat_to_user_prompt(beat, previous_text, next_text, continuity_bundle)])
         payload = {"user_prompt": prompt}
         body = json.dumps(payload).encode("utf-8")
         headers = {
@@ -130,13 +181,19 @@ class FastGenOpenAIChatClient:
         self.chat_route = chat_route if chat_route.startswith("/") else f"/{chat_route}"
         self.model = model
 
-    def analyze(self, beat: VisualBeat, previous_text: str = "", next_text: str = "") -> dict[str, Any]:
+    def analyze(
+        self,
+        beat: VisualBeat,
+        previous_text: str = "",
+        next_text: str = "",
+        continuity_bundle: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}{self.chat_route}"
         payload = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": beat_to_user_prompt(beat, previous_text, next_text)},
+                {"role": "user", "content": beat_to_user_prompt(beat, previous_text, next_text, continuity_bundle)},
             ],
             "stream": False,
         }
@@ -179,6 +236,7 @@ def build_semantic_plan(
     beats: list[VisualBeat],
     client: OpenAICompatibleClient | None = None,
     project_hint: str = "",
+    continuity_bundle: dict[str, Any] | None = None,
 ) -> tuple[list[SemanticBeatPlan], list[dict[str, Any]], dict[str, Any]]:
     plans: list[SemanticBeatPlan] = []
     traces: list[dict[str, Any]] = []
@@ -205,11 +263,11 @@ def build_semantic_plan(
                 {
                     "beat_id": beat.beat_id,
                     "mode": "dry_run",
-                    "request_preview": beat_to_user_prompt(beat, previous_text, next_text),
+                    "request_preview": beat_to_user_prompt(beat, previous_text, next_text, continuity_bundle),
                 }
             )
         else:
-            result = client.analyze(beat, previous_text, next_text)
+            result = client.analyze(beat, previous_text, next_text, continuity_bundle)
             parsed = result["parsed"]
             traces.append(
                 {
@@ -242,8 +300,12 @@ def build_semantic_plan(
             )
         )
 
-    plans, continuity_bundle = apply_continuity(plans, project_hint=project_hint)
-    return plans, traces, continuity_bundle
+    plans, resolved_continuity_bundle = apply_continuity(
+        plans,
+        project_hint=project_hint,
+        generated_bundle=continuity_bundle,
+    )
+    return plans, traces, resolved_continuity_bundle
 
 
 def export_semantic_bundle(

@@ -35,6 +35,34 @@ def _profile_map(items: list[dict[str, str]]) -> dict[str, dict[str, str]]:
     return {item["entity_id"]: item for item in items}
 
 
+def normalize_generated_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(bundle)
+    normalized.setdefault("theme_hint", "generic_documentary")
+    normalized.setdefault("continuity_world", normalized.get("visual_world", "A grounded documentary world with stable recurring people, objects, and locations."))
+    normalized.setdefault("style_summary", STYLE_SUMMARY)
+    normalized.setdefault("prompt_language", "English")
+    normalized.setdefault("recurring_motifs", [])
+    normalized.setdefault("continuity_rules", [])
+    normalized.setdefault("forbidden_mistakes", [])
+    normalized.setdefault("character_profiles", [])
+    normalized.setdefault("object_profiles", [])
+    normalized.setdefault("location_profiles", [])
+    normalized.setdefault("default_restrictions", list(DEFAULT_RESTRICTIONS))
+
+    for key in ("character_profiles", "object_profiles", "location_profiles"):
+        cleaned: list[dict[str, Any]] = []
+        for index, item in enumerate(normalized.get(key, []), start=1):
+            entity = dict(item)
+            entity.setdefault("entity_id", f"{key[:-9]}_{index:02d}")
+            entity.setdefault("profile", "")
+            entity.setdefault("role", entity["entity_id"].replace("_", " "))
+            entity.setdefault("usage_notes", "")
+            cleaned.append(entity)
+        normalized[key] = cleaned
+
+    return normalized
+
+
 def infer_theme(project_hint: str, plans: list[SemanticBeatPlan]) -> str:
     blob = " ".join(
         [
@@ -191,6 +219,28 @@ def generic_bundle() -> dict[str, Any]:
     }
 
 
+def merge_bundle_with_defaults(base_bundle: dict[str, Any], generated_bundle: dict[str, Any] | None = None) -> dict[str, Any]:
+    if not generated_bundle:
+        merged = dict(base_bundle)
+        merged.setdefault("style_summary", STYLE_SUMMARY)
+        merged.setdefault("default_restrictions", list(DEFAULT_RESTRICTIONS))
+        return merged
+
+    generated = normalize_generated_bundle(generated_bundle)
+    merged = dict(base_bundle)
+    merged["theme_hint"] = generated.get("theme_hint", merged.get("theme_hint", "generic_documentary"))
+    merged["continuity_world"] = generated.get("continuity_world") or merged["continuity_world"]
+    merged["recurring_motifs"] = generated.get("recurring_motifs") or merged.get("recurring_motifs", [])
+    merged["continuity_rules"] = generated.get("continuity_rules") or merged.get("continuity_rules", [])
+    merged["character_profiles"] = generated.get("character_profiles") or merged.get("character_profiles", [])
+    merged["object_profiles"] = generated.get("object_profiles") or merged.get("object_profiles", [])
+    merged["location_profiles"] = generated.get("location_profiles") or merged.get("location_profiles", [])
+    merged["style_summary"] = generated.get("style_summary") or STYLE_SUMMARY
+    merged["forbidden_mistakes"] = generated.get("forbidden_mistakes") or []
+    merged["default_restrictions"] = generated.get("default_restrictions") or list(DEFAULT_RESTRICTIONS)
+    return merged
+
+
 def _detect_flags(plan: SemanticBeatPlan) -> dict[str, bool]:
     lowered = clean_text(" ".join([plan.voiceover_excerpt, plan.meaning, plan.prompt_seed])).lower()
     return {
@@ -337,6 +387,25 @@ def _active_entities_for_role(role: str, theme: str) -> tuple[list[str], str]:
     return list(dict.fromkeys(active)), focus
 
 
+def _resolve_generic_active_entities(
+    active_ids: list[str],
+    char_map: dict[str, dict[str, str]],
+    object_map: dict[str, dict[str, str]],
+    location_map: dict[str, dict[str, str]],
+) -> list[str]:
+    resolved: list[str] = []
+    for candidate in active_ids:
+        if candidate in char_map or candidate in object_map or candidate in location_map:
+            resolved.append(candidate)
+    if not resolved and char_map:
+        resolved.append(next(iter(char_map)))
+    if object_map:
+        resolved.append(next(iter(object_map)))
+    if not any(item in location_map for item in resolved) and location_map:
+        resolved.append(next(iter(location_map)))
+    return list(dict.fromkeys(resolved))
+
+
 def _resolve_environment(role: str, active_ids: list[str], location_map: dict[str, dict[str, str]], fallback: str) -> str:
     preferred_map = {
         "luxury_establishing": "tokyo_boutique",
@@ -360,9 +429,15 @@ def _resolve_environment(role: str, active_ids: list[str], location_map: dict[st
     return fallback or "a grounded investigative documentary environment with no readable text"
 
 
-def apply_continuity(plans: list[SemanticBeatPlan], project_hint: str = "") -> tuple[list[SemanticBeatPlan], dict[str, Any]]:
-    theme = infer_theme(project_hint, plans)
-    bundle = jewel_heist_bundle() if theme == "luxury_jewel_heist_documentary" else generic_bundle()
+def apply_continuity(
+    plans: list[SemanticBeatPlan],
+    project_hint: str = "",
+    generated_bundle: dict[str, Any] | None = None,
+) -> tuple[list[SemanticBeatPlan], dict[str, Any]]:
+    theme = generated_bundle.get("theme_hint", "") if generated_bundle else infer_theme(project_hint, plans)
+    theme = theme or infer_theme(project_hint, plans)
+    base_bundle = jewel_heist_bundle() if theme == "luxury_jewel_heist_documentary" else generic_bundle()
+    bundle = merge_bundle_with_defaults(base_bundle, generated_bundle)
     char_map = _profile_map(bundle["character_profiles"])
     object_map = _profile_map(bundle["object_profiles"])
     location_map = _profile_map(bundle["location_profiles"])
@@ -374,6 +449,8 @@ def apply_continuity(plans: list[SemanticBeatPlan], project_hint: str = "") -> t
         role = _infer_shot_role(plan)
         blueprint = _blueprint_for_role(role)
         active_ids, continuity_focus = _active_entities_for_role(role, theme)
+        if theme != "luxury_jewel_heist_documentary":
+            active_ids = _resolve_generic_active_entities(active_ids, char_map, object_map, location_map)
         environment = _resolve_environment(role, active_ids, location_map, plan.environment)
 
         profiles: list[str] = []
@@ -394,8 +471,8 @@ def apply_continuity(plans: list[SemanticBeatPlan], project_hint: str = "") -> t
         plan.continuity_focus = continuity_focus
         plan.continuity_entity_ids = active_ids
         plan.continuity_profiles = profiles
-        plan.style_summary = STYLE_SUMMARY
-        plan.restrictions = list(DEFAULT_RESTRICTIONS)
+        plan.style_summary = bundle.get("style_summary", STYLE_SUMMARY)
+        plan.restrictions = list(bundle.get("default_restrictions", DEFAULT_RESTRICTIONS))
 
         shot_roles[plan.beat_id] = role
         scene_entity_map[plan.beat_id] = {
@@ -413,8 +490,9 @@ def apply_continuity(plans: list[SemanticBeatPlan], project_hint: str = "") -> t
         "location_profiles": bundle["location_profiles"],
         "shot_roles": shot_roles,
         "scene_entity_map": scene_entity_map,
-        "style_summary": STYLE_SUMMARY,
-        "default_restrictions": DEFAULT_RESTRICTIONS,
+        "style_summary": bundle.get("style_summary", STYLE_SUMMARY),
+        "default_restrictions": bundle.get("default_restrictions", DEFAULT_RESTRICTIONS),
+        "forbidden_mistakes": bundle.get("forbidden_mistakes", []),
     }
 
 
