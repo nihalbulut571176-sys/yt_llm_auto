@@ -10,6 +10,7 @@ if str(SRC) not in sys.path:
 
 from yt_llm_auto.fastgen_images import (  # noqa: E402
     compose_image_prompt,
+    compose_policy_safe_prompt,
     create_image_operation,
     export_generation_logs,
     load_fastgen_env,
@@ -50,20 +51,41 @@ def main() -> None:
         prompt = compose_image_prompt(item)
 
         try:
+            active_prompt = prompt
             created = create_image_operation(
                 api_key=api_key,
                 base_url=base_url,
-                prompt=prompt,
+                prompt=active_prompt,
                 aspect_ratio=args.aspect_ratio,
             )
             operation_id = created["operation_id"]
-            status = wait_for_image_result(
-                api_key=api_key,
-                base_url=base_url,
-                operation_id=operation_id,
-                poll_seconds=args.poll_seconds,
-                max_polls=args.max_polls,
-            )
+            try:
+                status = wait_for_image_result(
+                    api_key=api_key,
+                    base_url=base_url,
+                    operation_id=operation_id,
+                    poll_seconds=args.poll_seconds,
+                    max_polls=args.max_polls,
+                )
+            except Exception as exc:
+                message = str(exc)
+                if "content polic" not in message.lower():
+                    raise
+                active_prompt = compose_policy_safe_prompt(item)
+                created = create_image_operation(
+                    api_key=api_key,
+                    base_url=base_url,
+                    prompt=active_prompt,
+                    aspect_ratio=args.aspect_ratio,
+                )
+                operation_id = created["operation_id"]
+                status = wait_for_image_result(
+                    api_key=api_key,
+                    base_url=base_url,
+                    operation_id=operation_id,
+                    poll_seconds=args.poll_seconds,
+                    max_polls=args.max_polls,
+                )
             result = status.get("result") or []
             if not result:
                 raise RuntimeError(f"No result returned for {operation_id}")
@@ -78,7 +100,7 @@ def main() -> None:
                         "provider": status.get("provider"),
                         "model": status.get("model"),
                         "file_path": str(image_path),
-                        "prompt": prompt,
+                        "prompt": active_prompt,
                     },
                     ensure_ascii=False,
                     indent=2,
@@ -89,7 +111,7 @@ def main() -> None:
                 GeneratedImageRecord(
                     beat_id=item.beat_id,
                     image_id=image_id,
-                    prompt=prompt,
+                    prompt=active_prompt,
                     aspect_ratio=args.aspect_ratio,
                     operation_id=operation_id,
                     status="generated",

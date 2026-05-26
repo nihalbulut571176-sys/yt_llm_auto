@@ -58,10 +58,14 @@ python scripts/generate_images.py --semantic-plan ".\outputs\demo\semantic_plan.
 
 ```text
 docs/
+runs/
 scripts/
 src/yt_llm_auto/
 tests/
 ```
+
+Production-style results should go into `runs/<run_id>/...`.
+Use `outputs/` only for temporary scratch experiments.
 
 ## Notes
 

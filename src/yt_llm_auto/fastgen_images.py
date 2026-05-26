@@ -75,6 +75,26 @@ def compose_image_prompt(item: SemanticBeatPlan) -> str:
     )
 
 
+def compose_policy_safe_prompt(item: SemanticBeatPlan) -> str:
+    return "\n".join(
+        [
+            "Create a premium cinematic documentary still in 16:9.",
+            "",
+            f"Scene meaning: Show the investigative aftermath and immediate evidence of {item.meaning.lower()} without depicting the harmful act itself.",
+            "Visual function: documentary evidence and immediate consequence, not instructional action.",
+            f"Viewer emotion: {item.viewer_emotion}",
+            "Visual strategy: focus on aftermath, open display, shocked stillness, surveillance perspective, reflective surfaces, and missing-object evidence.",
+            "Shot type: investigative close-up or controlled over-the-shoulder documentary frame.",
+            f"Environment: {item.environment}",
+            f"Prompt seed: {item.prompt_seed}, but framed as aftermath and evidence only.",
+            f"Narration context: {item.voiceover_excerpt}",
+            "",
+            "Style: photorealistic, premium cinematic documentary, realistic lens perspective, natural imperfections, layered depth, no text, no watermark.",
+            "Restrictions: no active assault, no weapon use, no harmful spray depiction, no step-by-step crime action, no subtitles, no fake UI, no visible captions, no generic stock photo aesthetic, no distorted anatomy, no plastic skin.",
+        ]
+    )
+
+
 def create_image_operation(api_key: str, base_url: str, prompt: str, aspect_ratio: str = "16:9") -> dict[str, Any]:
     payload = {
         "prompt": prompt,
