@@ -13,6 +13,11 @@ dependencies = [
   "openai-whisper>=20250625",
 ]
 
+[project.optional-dependencies]
+advanced-alignment = [
+  "whisperx>=3.8.6",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

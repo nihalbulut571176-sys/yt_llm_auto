@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 import urllib.request
+import urllib.error
 
 from yt_llm_auto.models import SemanticBeatPlan, VisualBeat
 
@@ -75,6 +76,65 @@ class OpenAICompatibleClient:
         }
 
 
+class FastGenPromptClient:
+    def __init__(self, api_key: str, base_url: str, prompt_route: str) -> None:
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        self.prompt_route = prompt_route if prompt_route.startswith("/") else f"/{prompt_route}"
+
+    def analyze(self, beat: VisualBeat, previous_text: str = "", next_text: str = "") -> dict[str, Any]:
+        url = f"{self.base_url}{self.prompt_route}"
+        prompt = "\n\n".join([SYSTEM_PROMPT, beat_to_user_prompt(beat, previous_text, next_text)])
+        payload = {"user_prompt": prompt}
+        body = json.dumps(payload).encode("utf-8")
+        headers = {
+            "X-API-Key": self.api_key,
+            "Content-Type": "application/json",
+        }
+        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=180) as response:
+            raw = json.loads(response.read().decode("utf-8"))
+        return {
+            "request": payload,
+            "response": raw,
+            "parsed": json.loads(raw["generated_text"]),
+            "usage": raw.get("usage"),
+        }
+
+
+class FastGenOpenAIChatClient:
+    def __init__(self, api_key: str, base_url: str, chat_route: str, model: str) -> None:
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        self.chat_route = chat_route if chat_route.startswith("/") else f"/{chat_route}"
+        self.model = model
+
+    def analyze(self, beat: VisualBeat, previous_text: str = "", next_text: str = "") -> dict[str, Any]:
+        url = f"{self.base_url}{self.chat_route}"
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": beat_to_user_prompt(beat, previous_text, next_text)},
+            ],
+            "stream": False,
+        }
+        body = json.dumps(payload).encode("utf-8")
+        headers = {
+            "X-API-Key": self.api_key,
+            "Content-Type": "application/json",
+        }
+        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=180) as response:
+            raw = json.loads(response.read().decode("utf-8"))
+        return {
+            "request": payload,
+            "response": raw,
+            "parsed": parse_openai_compatible_response(raw),
+            "usage": raw.get("usage"),
+        }
+
+
 def parse_openai_compatible_response(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(payload.get("output_text"), str) and payload["output_text"].strip():
         return json.loads(payload["output_text"])
@@ -131,6 +191,7 @@ def build_semantic_plan(
                     "mode": "live",
                     "request": result["request"],
                     "response": result["response"],
+                    "usage": result.get("usage"),
                 }
             )
 

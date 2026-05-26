@@ -12,7 +12,7 @@ The old repository remains a reference only. This repository starts from a clean
 - local alignment via `faster-whisper` or `openai-whisper`
 - normalized word and segment timeline export
 - visual beat extraction from aligned speech
-- LLM-ready semantic analysis stage with an OpenAI-compatible interface
+- LLM-ready semantic analysis stage with FastGen prompt tokens or OpenAI-compatible chat
 - project docs for future FastGen image generation and final render integration
 
 ## Why This Repo Exists
@@ -64,4 +64,4 @@ tests/
 ## Notes
 
 - FastGen image generation is intentionally not reimplemented first here.
-- Public FastGen pricing currently shows `200,000 prompt-generation tokens/hour`, but public text-generation API docs were not clearly discoverable during this pass, so the semantic LLM layer is provider-configurable instead of hard-coupled to FastGen.
+- FastGen docs expose both `POST /api/v5/prompts/generate` and `POST /v1/chat/completions`; both count against the prompt-token hourly limit.

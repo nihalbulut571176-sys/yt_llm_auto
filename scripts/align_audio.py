@@ -18,7 +18,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--audio", required=True)
     parser.add_argument("--output-dir", required=True)
-    parser.add_argument("--engine", default=defaults.engine, choices=["faster_whisper", "openai_whisper"])
+    parser.add_argument("--engine", default=defaults.engine, choices=["faster_whisper", "openai_whisper", "whisperx"])
     parser.add_argument("--model", default=defaults.model)
     parser.add_argument("--language", default=defaults.language)
     parser.add_argument("--device", default=defaults.device)

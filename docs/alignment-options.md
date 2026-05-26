@@ -41,7 +41,7 @@ Weakness:
 
 Weakness:
 
-- not installed yet
+- now installed in the local dev environment
 - typically happier on Python 3.11/3.12 and often benefits from GPU
 - heavier dependency chain than the baseline path
 

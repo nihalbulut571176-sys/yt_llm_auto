@@ -30,11 +30,13 @@ class AlignmentSettings:
 
 @dataclass(slots=True)
 class SemanticLLMSettings:
-    provider: str = "openai_compatible"
+    provider: str = "fastgen_prompts_v5"
     api_key: str | None = None
     base_url: str = "https://api.openai.com/v1"
     endpoint: str = "/responses"
     model: str = "gpt-4.1-mini"
+    fastgen_prompt_route: str = "/api/v5/prompts/generate"
+    fastgen_chat_route: str = "/v1/chat/completions"
 
 
 def load_alignment_settings() -> AlignmentSettings:
@@ -48,10 +50,20 @@ def load_alignment_settings() -> AlignmentSettings:
 
 def load_semantic_llm_settings() -> SemanticLLMSettings:
     load_dotenv()
+    provider = os.getenv("SEMANTIC_LLM_PROVIDER", "fastgen_prompts_v5")
+    api_key = os.getenv("SEMANTIC_LLM_API_KEY")
+    base_url = os.getenv("SEMANTIC_LLM_BASE_URL", "https://api.openai.com/v1")
+
+    if provider in {"fastgen_prompts_v5", "fastgen_openai_chat"}:
+        api_key = os.getenv("FAST_GEN_API_KEY") or api_key
+        base_url = os.getenv("FAST_GEN_BASE_URL", "https://googler.fast-gen.ai")
+
     return SemanticLLMSettings(
-        provider=os.getenv("SEMANTIC_LLM_PROVIDER", "openai_compatible"),
-        api_key=os.getenv("SEMANTIC_LLM_API_KEY"),
-        base_url=os.getenv("SEMANTIC_LLM_BASE_URL", "https://api.openai.com/v1"),
+        provider=provider,
+        api_key=api_key,
+        base_url=base_url,
         endpoint=os.getenv("SEMANTIC_LLM_ENDPOINT", "/responses"),
-        model=os.getenv("SEMANTIC_LLM_MODEL", "gpt-4.1-mini"),
+        model=os.getenv("FASTGEN_CHAT_MODEL", os.getenv("SEMANTIC_LLM_MODEL", "gpt-4.1-mini")),
+        fastgen_prompt_route=os.getenv("FAST_GEN_PROMPT_ROUTE", "/api/v5/prompts/generate"),
+        fastgen_chat_route=os.getenv("FAST_GEN_CHAT_ROUTE", "/v1/chat/completions"),
     )

@@ -138,6 +138,73 @@ def transcribe_with_openai_whisper(
     return segments, meta
 
 
+def transcribe_with_whisperx(
+    audio_path: Path,
+    model_name: str,
+    language: str,
+    device: str,
+    compute_type: str,
+) -> tuple[list[SegmentAlignment], dict[str, Any]]:
+    import whisperx
+
+    asr_model = whisperx.load_model(
+        model_name,
+        device,
+        compute_type=compute_type,
+        language=language,
+    )
+    transcript = asr_model.transcribe(str(audio_path), batch_size=1)
+    align_model, align_metadata = whisperx.load_align_model(
+        language_code=transcript["language"],
+        device=device,
+    )
+    aligned = whisperx.align(
+        transcript["segments"],
+        align_model,
+        align_metadata,
+        str(audio_path),
+        device,
+    )
+
+    segments: list[SegmentAlignment] = []
+    for index, raw_segment in enumerate(aligned.get("segments", []), start=1):
+        words = []
+        for item in raw_segment.get("words", []):
+            word = _normalize_text(item.get("word", ""))
+            start = item.get("start")
+            end = item.get("end")
+            if not word or start is None or end is None:
+                continue
+            words.append(
+                WordAlignment(
+                    word=word,
+                    start=float(start),
+                    end=float(end),
+                    probability=float(item["score"]) if item.get("score") is not None else None,
+                )
+            )
+
+        segments.append(
+            SegmentAlignment(
+                segment_id=index,
+                start=float(raw_segment["start"]),
+                end=float(raw_segment["end"]),
+                text=_normalize_text(raw_segment.get("text", "")),
+                words=words,
+            )
+        )
+
+    meta = {
+        "engine": "whisperx",
+        "model": model_name,
+        "language": transcript.get("language", language),
+        "duration": segments[-1].end if segments else 0.0,
+        "word_timestamps": True,
+        "alignment_model_language": align_metadata.get("language"),
+    }
+    return segments, meta
+
+
 def transcribe_audio(
     audio_path: Path,
     engine: str,
@@ -161,6 +228,14 @@ def transcribe_audio(
             audio_path=audio_path,
             model_name=model_name,
             language=language,
+        )
+    if engine == "whisperx":
+        return transcribe_with_whisperx(
+            audio_path=audio_path,
+            model_name=model_name,
+            language=language,
+            device=device,
+            compute_type=compute_type,
         )
     raise ValueError(f"Unsupported alignment engine: {engine}")
 

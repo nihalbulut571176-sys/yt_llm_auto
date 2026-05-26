@@ -75,7 +75,11 @@ Output:
 
 ## Provider Strategy
 
-The semantic module is provider-configurable and currently assumes an OpenAI-compatible HTTP shape.
+The semantic module is provider-configurable and currently supports:
+
+- FastGen V5 prompt generation
+- FastGen OpenAI-compatible chat completions
+- generic OpenAI-compatible chat
 
 This is deliberate because:
 
@@ -83,4 +87,10 @@ This is deliberate because:
 - FastGen image docs are known from the old repo
 - public text-generation docs for FastGen were not clearly exposed during this pass
 
-Once FastGen text-generation docs are confirmed, we can add a dedicated adapter without changing beat extraction.
+FastGen docs currently expose:
+
+- `POST /api/v5/prompts/generate`
+- `POST /v1/chat/completions`
+- `GET /v1/models`
+
+That lets us use FastGen prompt tokens directly for semantic authoring without changing beat extraction.

@@ -10,6 +10,8 @@ if str(SRC) not in sys.path:
 
 from yt_llm_auto.config import load_semantic_llm_settings
 from yt_llm_auto.semantic_analysis import (
+    FastGenOpenAIChatClient,
+    FastGenPromptClient,
     OpenAICompatibleClient,
     build_semantic_plan,
     export_semantic_bundle,
@@ -24,6 +26,11 @@ def main() -> None:
     parser.add_argument("--alignment-json", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--provider",
+        default=settings.provider,
+        choices=["fastgen_prompts_v5", "fastgen_openai_chat", "openai_compatible"],
+    )
     args = parser.parse_args()
 
     alignment_json = Path(args.alignment_json).resolve()
@@ -34,12 +41,26 @@ def main() -> None:
     if not args.dry_run:
         if not settings.api_key:
             raise RuntimeError("SEMANTIC_LLM_API_KEY is required for live semantic analysis")
-        client = OpenAICompatibleClient(
-            api_key=settings.api_key,
-            base_url=settings.base_url,
-            endpoint=settings.endpoint,
-            model=settings.model,
-        )
+        if args.provider == "fastgen_prompts_v5":
+            client = FastGenPromptClient(
+                api_key=settings.api_key,
+                base_url=settings.base_url,
+                prompt_route=settings.fastgen_prompt_route,
+            )
+        elif args.provider == "fastgen_openai_chat":
+            client = FastGenOpenAIChatClient(
+                api_key=settings.api_key,
+                base_url=settings.base_url,
+                chat_route=settings.fastgen_chat_route,
+                model=settings.model,
+            )
+        else:
+            client = OpenAICompatibleClient(
+                api_key=settings.api_key,
+                base_url=settings.base_url,
+                endpoint=settings.endpoint,
+                model=settings.model,
+            )
 
     plans, traces = build_semantic_plan(beats, client=client)
     outputs = export_semantic_bundle(plans, traces, output_dir)
