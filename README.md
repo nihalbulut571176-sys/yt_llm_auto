@@ -13,6 +13,7 @@ The old repository remains a reference only. This repository starts from a clean
 - normalized word and segment timeline export
 - visual beat extraction from aligned speech
 - LLM-ready semantic analysis stage with FastGen prompt tokens or OpenAI-compatible chat
+- FastGen image generation from semantic beats
 - project docs for future FastGen image generation and final render integration
 
 ## Why This Repo Exists
@@ -50,6 +51,7 @@ python -m venv .venv
 python -m pip install -e .
 python scripts/align_audio.py --audio "C:\path\voiceover.mp3" --output-dir ".\outputs\demo"
 python scripts/semantic_analyze.py --alignment-json ".\outputs\demo\alignment.json" --output-dir ".\outputs\demo" --dry-run
+python scripts/generate_images.py --semantic-plan ".\outputs\demo\semantic_plan.json" --output-dir ".\outputs\demo\images" --start 1 --end 2
 ```
 
 ## Layout

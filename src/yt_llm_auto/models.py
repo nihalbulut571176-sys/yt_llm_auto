@@ -46,5 +46,17 @@ class SemanticBeatPlan:
     prompt_seed: str
 
 
+@dataclass(slots=True)
+class GeneratedImageRecord:
+    beat_id: str
+    image_id: str
+    prompt: str
+    aspect_ratio: str
+    operation_id: str | None
+    status: str
+    file_path: str | None
+    error: str | None = None
+
+
 def to_dict_list(items: list[object]) -> list[dict]:
     return [asdict(item) for item in items]
