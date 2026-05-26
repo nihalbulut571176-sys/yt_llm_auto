@@ -14,7 +14,7 @@ The old repository remains a reference only. This repository starts from a clean
 - visual beat extraction from aligned speech
 - LLM-ready semantic analysis stage with FastGen prompt tokens or OpenAI-compatible chat
 - optional LLM-generated `continuity_bible.json` for project-wide recurring cast and visual world
-- Python continuity layer for recurring characters, objects, lighting, angle, and atmosphere
+- Python orchestration layer that validates LLM-authored continuity and prompt outputs without taking over visual authorship
 - FastGen image generation from semantic beats
 - project docs for future FastGen image generation and final render integration
 
@@ -77,6 +77,12 @@ Semantic analysis now exports:
 - `semantic_plan.json`
 - `semantic_llm_trace.json`
 - `continuity_bundle.json`
+
+Each semantic beat is intended to be LLM-authored and may include:
+
+- `active_entity_ids`
+- `continuity_notes`
+- `exact_image_prompt`
 
 ## Notes
 

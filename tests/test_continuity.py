@@ -1,6 +1,6 @@
 import unittest
 
-from yt_llm_auto.continuity import apply_continuity, infer_theme
+from yt_llm_auto.continuity import enrich_plans_from_bible, infer_theme
 from yt_llm_auto.models import SemanticBeatPlan
 
 
@@ -24,7 +24,7 @@ class ContinuityTests(unittest.TestCase):
         ]
         self.assertEqual(infer_theme("Pink Panthers documentary", plans), "luxury_jewel_heist_documentary")
 
-    def test_apply_continuity_adds_recurring_profiles(self) -> None:
+    def test_enrich_plans_from_bible_adds_recurring_profiles(self) -> None:
         plans = [
             SemanticBeatPlan(
                 beat_id="B0001",
@@ -39,17 +39,31 @@ class ContinuityTests(unittest.TestCase):
                 shot_type="over-the-shoulder",
                 environment="boutique interior",
                 prompt_seed="two operators under surveillance",
+                active_entity_ids=["lead_operator", "support_operator", "tokyo_boutique"],
             )
         ]
 
-        enriched, bundle = apply_continuity(plans, project_hint="Pink Panthers documentary")
+        bundle = {
+            "theme_hint": "luxury_jewel_heist_documentary",
+            "continuity_world": "A premium investigative documentary world.",
+            "style_summary": "premium cinematic documentary",
+            "character_profiles": [
+                {"entity_id": "lead_operator", "profile": "the same calm man in a charcoal suit"},
+                {"entity_id": "support_operator", "profile": "the same woman in a camel coat"},
+            ],
+            "object_profiles": [],
+            "location_profiles": [
+                {"entity_id": "tokyo_boutique", "profile": "the same high-end Tokyo jewelry boutique"},
+            ],
+            "default_restrictions": ["no text on image"],
+        }
+        enriched, bundle = enrich_plans_from_bible(plans, bundle, project_hint="Pink Panthers documentary")
 
         self.assertEqual(bundle["theme_hint"], "luxury_jewel_heist_documentary")
         self.assertIn("lead_operator", enriched[0].continuity_entity_ids)
         self.assertIn("support_operator", enriched[0].continuity_entity_ids)
         self.assertTrue(any("lead_operator:" in item for item in enriched[0].continuity_profiles))
-        self.assertTrue(enriched[0].primary_subject)
-        self.assertTrue(enriched[0].angle)
+        self.assertEqual(enriched[0].style_summary, "premium cinematic documentary")
 
 
 if __name__ == "__main__":

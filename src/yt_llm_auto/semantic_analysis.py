@@ -7,13 +7,13 @@ from typing import Any
 import urllib.request
 import urllib.error
 
-from yt_llm_auto.continuity import apply_continuity, continuity_bundle_to_dict
+from yt_llm_auto.continuity import continuity_bundle_to_dict, enrich_plans_from_bible
 from yt_llm_auto.models import SemanticBeatPlan, VisualBeat
 
 
-SYSTEM_PROMPT = """You are a documentary visual analyst.
+SYSTEM_PROMPT = """You are a documentary visual director authoring a beat-level scene plan for one frame or short visual beat in one coherent documentary film.
 
-For each beat, return a compact JSON object with these fields:
+Return a compact JSON object with these fields:
 - meaning
 - viewer_emotion
 - visual_function
@@ -25,14 +25,22 @@ For each beat, return a compact JSON object with these fields:
 - angle
 - lighting
 - atmosphere
+- active_entity_ids
+- continuity_notes
+- exact_image_prompt
 
 Rules:
-- Think like a premium documentary editor, not an object illustrator.
+- Think like a premium documentary film visual director, not an object illustrator.
 - Avoid generic stock-photo logic.
-- Prefer mechanism, consequence, scale, evidence, or tension when appropriate.
+- Prefer mechanism, consequence, scale, evidence, tension, aftermath, or system perspective when appropriate.
 - Keep prompt_seed concise but visually strong.
 - Do not use real names or text-in-image ideas.
-- If people recur across beats, keep them describable as the same recurring film characters.
+- Use active_entity_ids only from the provided continuity bible when relevant.
+- exact_image_prompt must be the final English image prompt, ready to send directly to an image generation model.
+- exact_image_prompt must include style, atmosphere, lighting, angle, main subject, and strong documentary realism.
+- If recurring characters or objects are in frame, explicitly preserve them in exact_image_prompt.
+- Do not invent masks, uniforms, weapons, logos, visible text, or other specifics unless supported by narration context or the continuity bible.
+- Do not delegate creative decisions back to Python.
 - Return valid JSON only.
 """
 
@@ -79,6 +87,9 @@ def build_continuity_prompt_context(bundle: dict[str, Any] | None) -> str:
         lines.append("Recurring locations:")
         for item in locations[:4]:
             lines.append(f"- {item.get('entity_id', '')}: {item.get('profile', '')}")
+    restrictions = bundle.get("default_restrictions", [])
+    if restrictions:
+        lines.append("Global restrictions: " + ", ".join(str(item) for item in restrictions[:8]))
     return "\n".join(line for line in lines if line.strip())
 
 
@@ -258,6 +269,9 @@ def build_semantic_plan(
                 "angle": "",
                 "lighting": "",
                 "atmosphere": "",
+                "active_entity_ids": [],
+                "continuity_notes": "",
+                "exact_image_prompt": "",
             }
             traces.append(
                 {
@@ -297,13 +311,20 @@ def build_semantic_plan(
                 angle=str(parsed.get("angle", "")),
                 lighting=str(parsed.get("lighting", "")),
                 atmosphere=str(parsed.get("atmosphere", "")),
+                active_entity_ids=[
+                    str(item).strip()
+                    for item in parsed.get("active_entity_ids", [])
+                    if str(item).strip()
+                ],
+                continuity_notes=str(parsed.get("continuity_notes", "")),
+                exact_image_prompt=str(parsed.get("exact_image_prompt", "")),
             )
         )
 
-    plans, resolved_continuity_bundle = apply_continuity(
+    plans, resolved_continuity_bundle = enrich_plans_from_bible(
         plans,
+        continuity_bundle,
         project_hint=project_hint,
-        generated_bundle=continuity_bundle,
     )
     return plans, traces, resolved_continuity_bundle
 

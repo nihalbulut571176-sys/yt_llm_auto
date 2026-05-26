@@ -35,6 +35,30 @@ def _profile_map(items: list[dict[str, str]]) -> dict[str, dict[str, str]]:
     return {item["entity_id"]: item for item in items}
 
 
+def build_minimal_bundle(project_hint: str = "") -> dict[str, Any]:
+    theme_hint = "generic_documentary"
+    lowered = clean_text(project_hint).lower()
+    if "panther" in lowered or "jewel" in lowered or "diamond" in lowered:
+        theme_hint = "luxury_jewel_heist_documentary"
+    return normalize_generated_bundle(
+        {
+            "theme_hint": theme_hint,
+            "continuity_world": "A grounded premium documentary world that must feel like one coherent film across all beats.",
+            "style_summary": STYLE_SUMMARY,
+            "recurring_motifs": [],
+            "continuity_rules": [
+                "Keep recurring people, objects, and locations visually stable whenever they return.",
+                "Do not introduce random replacement characters.",
+                "No visible text, logos, or watermarks.",
+            ],
+            "character_profiles": [],
+            "object_profiles": [],
+            "location_profiles": [],
+            "default_restrictions": list(DEFAULT_RESTRICTIONS),
+        }
+    )
+
+
 def normalize_generated_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(bundle)
     normalized.setdefault("theme_hint", "generic_documentary")
@@ -504,3 +528,49 @@ def continuity_bundle_to_dict(bundle: dict[str, Any]) -> dict[str, Any]:
         else:
             serializable[key] = value
     return serializable
+
+
+def enrich_plans_from_bible(
+    plans: list[SemanticBeatPlan],
+    continuity_bundle: dict[str, Any] | None,
+    project_hint: str = "",
+) -> tuple[list[SemanticBeatPlan], dict[str, Any]]:
+    bundle = normalize_generated_bundle(continuity_bundle) if continuity_bundle else build_minimal_bundle(project_hint)
+    char_map = _profile_map(bundle["character_profiles"])
+    object_map = _profile_map(bundle["object_profiles"])
+    location_map = _profile_map(bundle["location_profiles"])
+    valid_ids = set(char_map) | set(object_map) | set(location_map)
+    scene_entity_map: dict[str, Any] = {}
+
+    for plan in plans:
+        selected_ids = [entity_id for entity_id in plan.active_entity_ids if entity_id in valid_ids]
+        profiles: list[str] = []
+        for entity_id in selected_ids:
+            if entity_id in char_map:
+                profiles.append(f"{entity_id}: {char_map[entity_id]['profile']}")
+            elif entity_id in object_map:
+                profiles.append(f"{entity_id}: {object_map[entity_id]['profile']}")
+            elif entity_id in location_map:
+                profiles.append(f"{entity_id}: {location_map[entity_id]['profile']}")
+
+        if not plan.environment:
+            for entity_id in selected_ids:
+                if entity_id in location_map:
+                    plan.environment = location_map[entity_id]["profile"]
+                    break
+
+        plan.continuity_world = bundle["continuity_world"]
+        plan.style_summary = bundle.get("style_summary", STYLE_SUMMARY)
+        plan.restrictions = list(bundle.get("default_restrictions", DEFAULT_RESTRICTIONS))
+        plan.continuity_entity_ids = selected_ids
+        plan.continuity_profiles = profiles
+        plan.continuity_focus = plan.continuity_notes or "preserve one coherent documentary world across recurring entities"
+
+        scene_entity_map[plan.beat_id] = {
+            "active_entities": selected_ids,
+            "continuity_focus": plan.continuity_focus,
+        }
+
+    enriched_bundle = dict(bundle)
+    enriched_bundle["scene_entity_map"] = scene_entity_map
+    return plans, enriched_bundle

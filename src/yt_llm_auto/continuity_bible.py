@@ -36,6 +36,7 @@ Rules:
 - forbidden_mistakes: 4 to 6 items.
 - No real-person names.
 - No text inside images.
+- Do not invent masks, uniforms, or glamorized criminal styling unless the story explicitly supports them.
 - Keep all free-text output in English.
 """
 
@@ -58,6 +59,7 @@ Rules:
 - Keep every profile compact but visually repeatable.
 - usage_notes must be short.
 - No real-person names.
+- Do not invent masks, uniforms, or costume details unless clearly supported by the narration.
 - Keep all free-text output in English.
 
 If the story is a luxury jewel heist documentary, prefer exact ids like:

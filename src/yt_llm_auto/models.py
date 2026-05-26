@@ -48,6 +48,9 @@ class SemanticBeatPlan:
     angle: str = ""
     lighting: str = ""
     atmosphere: str = ""
+    active_entity_ids: list[str] = field(default_factory=list)
+    continuity_notes: str = ""
+    exact_image_prompt: str = ""
     continuity_world: str = ""
     continuity_focus: str = ""
     continuity_entity_ids: list[str] = field(default_factory=list)

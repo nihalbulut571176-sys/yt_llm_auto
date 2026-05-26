@@ -56,6 +56,8 @@ def load_semantic_plan(path: Path) -> list[SemanticBeatPlan]:
 
 
 def compose_image_prompt(item: SemanticBeatPlan) -> str:
+    if item.exact_image_prompt.strip():
+        return item.exact_image_prompt.strip()
     continuity_profiles = item.continuity_profiles or [
         "Reuse the same recurring documentary subject and the same recurring objects across the sequence."
     ]
@@ -103,6 +105,15 @@ def compose_image_prompt(item: SemanticBeatPlan) -> str:
 
 
 def compose_policy_safe_prompt(item: SemanticBeatPlan) -> str:
+    if item.exact_image_prompt.strip():
+        return "\n".join(
+            [
+                item.exact_image_prompt.strip(),
+                "",
+                "Safety override: reframe the scene as documentary aftermath, evidence, consequence, or investigation only.",
+                "Do not depict the harmful act itself. No explicit assault, no step-by-step crime action, no instructional detail.",
+            ]
+        )
     return "\n".join(
         [
             "Create a premium cinematic documentary still in 16:9.",

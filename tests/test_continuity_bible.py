@@ -1,6 +1,6 @@
 import unittest
 
-from yt_llm_auto.continuity import apply_continuity
+from yt_llm_auto.continuity import enrich_plans_from_bible
 from yt_llm_auto.continuity_bible import build_project_context_prompt
 from yt_llm_auto.models import SemanticBeatPlan, VisualBeat
 
@@ -45,7 +45,8 @@ class ContinuityBibleTests(unittest.TestCase):
             "recurring_motifs": ["glass reflections"],
             "default_restrictions": ["no text on image"],
         }
-        enriched, bundle = apply_continuity(plans, project_hint="Pink Panthers documentary", generated_bundle=generated)
+        plans[0].active_entity_ids = ["lead_operator", "support_operator", "tokyo_boutique"]
+        enriched, bundle = enrich_plans_from_bible(plans, generated, project_hint="Pink Panthers documentary")
         self.assertEqual(bundle["continuity_world"], "A cold luxury-crime documentary world.")
         self.assertIn("lead_operator", enriched[0].continuity_entity_ids)
         self.assertTrue(any("the same calm man in charcoal suit" in item for item in enriched[0].continuity_profiles))
